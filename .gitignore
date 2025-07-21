@@ -1,0 +1,6 @@
+# State files
+n8n_local_data/
+
+# IDE files
+.vscode/
+.idea/ 
