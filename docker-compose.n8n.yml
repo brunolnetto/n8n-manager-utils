@@ -1,0 +1,108 @@
+version: "3.7"
+
+services:
+  editor:
+    image: n8nio/n8n:${N8N_VERSION:-latest}
+    container_name: editor_${SERVER_NAME}_${INSTANCE_NAME}
+    command: start
+    networks:
+      - n8n_global_network
+    environment:
+      # DB Config (Provided by deploy script)
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n_shared_postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${DB_NAME}
+      - DB_POSTGRESDB_USER=${DB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_PASS}
+      
+      # Redis Config (Provided by deploy script)
+      - QUEUE_BULL_REDIS_HOST=n8n_shared_redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=${REDIS_DB}
+
+      # n8n instance config
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=localhost
+      - N8N_EDITOR_BASE_URL=http://localhost:${N8N_PORT}/
+      - WEBHOOK_URL=http://localhost:${N8N_PORT}/
+      - N8N_PROTOCOL=http
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - TZ=America/Sao_Paulo
+
+      # Scalability & Node config
+      - NODE_ENV=production
+      - EXECUTIONS_MODE=queue
+      - N8N_REINSTALL_MISSING_PACKAGES=true
+      - N8N_COMMUNITY_PACKAGES_ENABLED=true
+      - N8N_NODE_PATH=/home/node/.n8n/nodes
+
+    volumes:
+      - ${SERVER_NAME}_${INSTANCE_NAME}_n8n_data:/home/node/.n8n
+      # This volume is used for temporary git clones during import/backup
+      - ${SERVER_NAME}_${INSTANCE_NAME}_repo_temp:/tmp/import_data
+    ports:
+      - "${N8N_PORT}:5678"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  webhook:
+    image: n8nio/n8n:${N8N_VERSION:-latest}
+    container_name: webhook_${SERVER_NAME}_${INSTANCE_NAME}
+    command: webhook
+    networks:
+      - n8n_global_network
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n_shared_postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${DB_NAME}
+      - DB_POSTGRESDB_USER=${DB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_PASS}
+      - QUEUE_BULL_REDIS_HOST=n8n_shared_redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=${REDIS_DB}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    volumes:
+      - ${SERVER_NAME}_${INSTANCE_NAME}_n8n_data:/home/node/.n8n
+
+  worker:
+    image: n8nio/n8n:${N8N_VERSION:-latest}
+    container_name: worker_${SERVER_NAME}_${INSTANCE_NAME}
+    command: worker --concurrency=10
+    networks:
+      - n8n_global_network
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep 'worker' | grep -v 'grep' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n_shared_postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${DB_NAME}
+      - DB_POSTGRESDB_USER=${DB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_PASS}
+      - QUEUE_BULL_REDIS_HOST=n8n_shared_redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=${REDIS_DB}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    volumes:
+      - ${SERVER_NAME}_${INSTANCE_NAME}_n8n_data:/home/node/.n8n
+
+networks:
+  n8n_global_network:
+    external: true
+    name: n8n_global_network
+
+volumes:
+  ${SERVER_NAME}_${INSTANCE_NAME}_n8n_data:
+    name: ${SERVER_NAME}_${INSTANCE_NAME}_n8n_data
+  ${SERVER_NAME}_${INSTANCE_NAME}_repo_temp:
+    name: ${SERVER_NAME}_${INSTANCE_NAME}_repo_temp 

@@ -1,0 +1,40 @@
+version: "3.7"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: n8n_shared_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=postgres # Default db, we will create instance dbs
+    volumes:
+      - n8n_shared_postgres_data:/var/lib/postgresql/data
+    networks:
+      - n8n_global_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: n8n_shared_redis
+    restart: always
+    networks:
+      - n8n_global_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  n8n_global_network:
+    name: n8n_global_network
+
+volumes:
+  n8n_shared_postgres_data:
+    name: n8n_shared_postgres_data 
