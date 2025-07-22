@@ -20,7 +20,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7
+    image: redis:8
     container_name: n8n_shared_redis
     restart: always
     networks:
